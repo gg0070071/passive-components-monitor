@@ -1,0 +1,9 @@
+# 数据采集与处理
+akshare>=1.18
+pandas>=2.0
+
+# 数据库（SQLite 为 Python 内置，无需安装）
+# 查看数据库可用 DB Browser for SQLite（图形界面，免费）
+
+# AI 层（DeepSeek，OpenAI 兼容协议）
+openai>=1.0

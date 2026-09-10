@@ -1,0 +1,23 @@
+# ---- 数据与数据库（可由 src/ 下的脚本再生，不纳入版本控制）----
+data/raw/*.csv
+data/db/*.db
+data/db/*.db-journal
+data/db/*.db-wal
+data/db/*.db-shm
+!data/raw/.gitkeep
+!data/db/.gitkeep
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# ---- 密钥与环境变量（绝不提交 API key）----
+.env
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
