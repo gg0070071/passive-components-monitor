@@ -64,3 +64,22 @@ CREATE TABLE IF NOT EXISTS fact_financial (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fin_metric ON fact_financial (metric, report_date);
+
+-- ---------------------------------------------------------------------------
+-- 事实表：异动记录（派生表，由 src/anomaly.py 生成）
+-- ---------------------------------------------------------------------------
+-- 记录每一条检测到的个股日收益异动，以及归因结果：
+--   market  —— 当日全池普涨/普跌，属市场性
+--   segment —— 当日同环节整体同向变动，属板块性
+--   stock   —— 市场与板块都解释不了，属个股性（更值得深挖）
+CREATE TABLE IF NOT EXISTS fact_anomaly (
+    code            TEXT NOT NULL,       -- 股票代码
+    trade_date      TEXT NOT NULL,       -- 异动交易日
+    ret             REAL,                -- 当日涨跌幅（小数，0.05 = 5%）
+    zscore          REAL,                -- 相对自身近 60 日的 z 分数
+    market_ret      REAL,                -- 当日全池平均涨跌幅
+    segment_ret     REAL,                -- 当日同环节平均涨跌幅（不含自身）
+    attribution     TEXT,                -- market / segment / stock
+    PRIMARY KEY (code, trade_date),
+    FOREIGN KEY (code) REFERENCES dim_stock(code)
+);

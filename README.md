@@ -35,8 +35,17 @@ data/raw/*.csv
     ▼
 SQLite: dim_stock / fact_quote / fact_financial     ← 星型模型
     │  sql/queries.sql              分析层（同比、异动、同业对比）
+    │  src/anomaly.py               异动检测与归因（z-score）
     ▼
-（规划中）分析 → LLM 月报 → Power BI 看板
+SQLite: fact_anomaly
+    │  ai/report_input.py           把事实汇总成结构化 JSON
+    │  ai/report_pipeline.py        调用 DeepSeek 生成月报
+    │  ai/quality_gate.py           校验月报数字能否回溯（拦截幻觉）
+    ▼
+reports/月报_*.md
+    │
+    ▼
+（规划中）Power BI 看板
 ```
 
 ---
@@ -48,14 +57,21 @@ passive-components-monitor/
 ├── src/
 │   ├── tickers.py        标的池配置
 │   ├── fetch_data.py     数据采集（多源降级）
-│   └── load_to_db.py     CSV → SQLite
+│   ├── load_to_db.py     CSV → SQLite
+│   └── anomaly.py        异动检测与归因
+├── ai/
+│   ├── report_input.py   汇总事实 → 结构化 JSON
+│   ├── report_pipeline.py 调用 DeepSeek 生成月报
+│   ├── quality_gate.py   数字回溯校验（拦截幻觉）
+│   └── prompts/
+│       └── monthly_report.md  提示词模板
 ├── sql/
 │   ├── schema.sql        表结构（星型模型）
 │   └── queries.sql       分析查询集（9 条）
 ├── data/
 │   ├── raw/              采集的原始 CSV（可再生，不入库）
 │   └── db/               SQLite 数据库
-├── reports/              行业月报（规划中）
+├── reports/              生成的月报与提示词留档
 └── dashboard/            Power BI 看板（规划中）
 ```
 
@@ -75,6 +91,13 @@ python src/load_to_db.py --rebuild
 
 # 4. 跑分析查询
 sqlite3 data/db/passive_components.db < sql/queries.sql
+
+# 5. 异动检测与归因（写入 fact_anomaly）
+python src/anomaly.py
+
+# 6. 生成行业月报（需先设好 DeepSeek key）
+export DEEPSEEK_API_KEY=你的key
+python ai/report_pipeline.py            # 加 --dry-run 可离线只渲染提示词
 ```
 
 > 注：SQLite 需要文件系统支持文件锁。若把项目放在网络盘或虚拟挂载盘上，
@@ -135,15 +158,39 @@ sqlite3 data/db/passive_components.db < sql/queries.sql
 
 ---
 
+## AI 月报流水线（含"输出质量门禁"）
+
+这套流水线的核心设计是**把"算数"和"写字"分开**：
+
+1. `ai/report_input.py` — 所有数字先在数据库里查好，汇总成结构化 JSON；
+2. `ai/report_pipeline.py` — 把这份 JSON 填进提示词模板，交给 DeepSeek 组织成文字；
+3. `ai/quality_gate.py` — 成稿后，把月报里的**每个数字**抽出来，逐个回溯到事实数据，
+   凡是在事实里找不到来源的，一律标出来。
+
+**为什么必须有第三道门：** LLM 会非常自信地编造数字。提示词里写"只能用给定数据"并不能
+可靠地阻止它——实测中把"净利润同比 500%""市占率 45%"这类凭空数字塞进月报，模型照样写得
+有模有样。所以约束不能只靠提示词，必须有一道机器校验兜底。
+
+门禁的边界要说清楚：它是**回溯校验**，只保证"月报里的数字有出处"，不保证"数字的业务含义
+正确"。后者仍需人工判断。
+
+```
+python ai/report_input.py --out /tmp/facts.json     # 导出事实
+python ai/quality_gate.py reports/月报_xxx.md /tmp/facts.json
+```
+
+---
+
 ## 路线图
 
 - [x] 数据采集（多源降级）
 - [x] SQLite 入库（星型模型）
 - [x] 分析查询集
-- [ ] 异动归因（同业/环节联动）
-- [ ] LLM 自动生成行业月报 + 输出质量门禁
+- [x] 异动检测与归因（滚动 z-score）
+- [x] LLM 月报流水线 + 输出质量门禁
+- [ ] 行业月报成稿（需本机配置 DeepSeek key 后运行）
 - [ ] Power BI 看板
-- [ ] 行业月报成稿
+- [ ] 发布到 GitHub
 
 ---
 
