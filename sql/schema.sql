@@ -52,14 +52,20 @@ CREATE INDEX IF NOT EXISTS idx_quote_date ON fact_quote (trade_date);
 -- 源数据是宽表（指标 × 报告期），这里转成"长表"——每个"指标 × 报告期"一行，
 -- 便于用 SQL 做同比/环比和跨公司对比。
 --
--- category（原文'选项'）用于区分同名指标所属的分组，避免主键冲突。
+-- 【重要】关于 category 列与主键设计：
+--   源数据的 '选项' 列会把同一个指标挂在多个分组下（如 毛利率 同时出现在
+--   "常用指标" 和 "盈利能力"）。实测 5745 组重复组合中，数值 100% 一致，
+--   属于纯冗余而非口径冲突。若把 category 放进主键，同一事实会存两行，
+--   任何未察觉的查询都会重复计数。
+--   因此主键只取 (code, report_date, metric)，category 退化为信息列，
+--   只保留该指标首次出现时所属的分组。
 CREATE TABLE IF NOT EXISTS fact_financial (
     code        TEXT NOT NULL,           -- 股票代码
     report_date TEXT NOT NULL,           -- 报告期 'YYYY-MM-DD'（如 2026-06-30）
-    category    TEXT NOT NULL,           -- 指标分组，源数据的'选项'列
     metric      TEXT NOT NULL,           -- 指标名，如 '归母净利润'
+    category    TEXT,                    -- 源数据分组（信息列，非主键）
     value       REAL,                    -- 指标值（原始单位）
-    PRIMARY KEY (code, report_date, category, metric),
+    PRIMARY KEY (code, report_date, metric),
     FOREIGN KEY (code) REFERENCES dim_stock(code)
 );
 

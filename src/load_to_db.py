@@ -82,6 +82,7 @@ def load_fact_quote(conn: sqlite3.Connection) -> int:
 def load_fact_financial(conn: sqlite3.Connection) -> int:
     """宽表转长表：每个'指标 × 报告期'一行。"""
     total = 0
+    dedup_stats = []
     for code, name, _seg in TICKERS:
         path = RAW_DIR / f"{code}_{name}_financials.csv"
         if not path.exists():
@@ -102,6 +103,14 @@ def load_fact_financial(conn: sqlite3.Connection) -> int:
         long["value"] = pd.to_numeric(long["value"], errors="coerce")  # 非数字转 NULL
         long["code"] = code
 
+        # 源数据会把同一指标挂在多个分组下（值一致）。按"指标 × 报告期"去重，
+        # 保留首次出现的分组，避免同一事实存两行导致重复计数。
+        before = len(long)
+        long = long.drop_duplicates(subset=["code", "report_date", "metric"], keep="first")
+        dropped = before - len(long)
+        if dropped:
+            dedup_stats.append((name, dropped))
+
         records = long[["code", "report_date", "category", "metric", "value"]] \
             .itertuples(index=False, name=None)
         conn.executemany(
@@ -111,6 +120,9 @@ def load_fact_financial(conn: sqlite3.Connection) -> int:
         )
         total += len(long)
     conn.commit()
+    if dedup_stats:
+        total_dropped = sum(n for _, n in dedup_stats)
+        print(f"  [去重] 移除跨分组重复的财务记录 {total_dropped} 行")
     return total
 
 

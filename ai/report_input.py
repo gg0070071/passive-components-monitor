@@ -167,6 +167,29 @@ def collect(conn: sqlite3.Connection) -> dict:
         for _, r in suspend.iterrows()
     ]
 
+    # --- 派生指标 ---------------------------------------------------------
+    # 这些数由管道算出，而不是让 LLM 自己减/除。原因见 README：
+    # LLM 自算的数无法被质量门禁溯源，会被判为"编造"。
+    # 凡是月报里想用的比较类数字，都应该在这里先算好。
+    rdf = pd.DataFrame(returns)
+    segment_spread = []
+    for seg_name, g in rdf.groupby("segment"):
+        hi = g.loc[g["ret_pct"].idxmax()]
+        lo = g.loc[g["ret_pct"].idxmin()]
+        segment_spread.append({
+            "segment": seg_name,
+            "max_name": hi["name"], "max_ret_pct": _round(hi["ret_pct"]),
+            "min_name": lo["name"], "min_ret_pct": _round(lo["ret_pct"]),
+            "spread_pct": _round(hi["ret_pct"] - lo["ret_pct"]),
+        })
+    segment_spread.sort(key=lambda x: x["spread_pct"], reverse=True)
+
+    total_ano = anomaly_summary["total"]
+    anomaly_share = (
+        {k: _round(100 * v / total_ano) for k, v in anomaly_summary["by_attribution"].items()}
+        if total_ano else {}
+    )
+
     return {
         "meta": {
             "data_start": first_day,
@@ -180,6 +203,10 @@ def collect(conn: sqlite3.Connection) -> dict:
         "profitability": profitability,
         "anomaly_summary": anomaly_summary,
         "data_notes": data_notes,
+        "derived": {
+            "segment_spread": segment_spread,
+            "anomaly_share_pct": anomaly_share,
+        },
     }
 
 
