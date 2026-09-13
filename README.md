@@ -222,3 +222,9 @@ python ai/quality_gate.py reports/月报_xxx.md /tmp/facts.json
 ## 环境
 
 Python 3.9+ ｜ pandas ｜ akshare ｜ SQLite（Python 内置）
+
+---
+
+## 许可
+
+[MIT License](LICENSE) © 2026 egan
