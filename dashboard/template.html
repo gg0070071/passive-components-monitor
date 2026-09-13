@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>被动元件产业链 · 投研监控</title>
+<style>
+:root{
+  --paper:#E9ECEE; --panel:#F5F7F8; --ink:#15191D; --muted:#5A646B;
+  --rule:#C7CFD4; --rule-strong:#A8B3B9;
+  --teal:#2E6E7E; --amber:#B8801E; --copper:#9A5533;
+  --signal:#8E2B22;
+  /* 全部使用系统字体：不依赖任何外部 CDN，国内访问与离线打开都正常
+     （招聘方可能在国内、用 Windows，Google Fonts 会加载失败） */
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.6;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px 80px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- 页眉 ---------- */
+.masthead{padding:56px 0 0;border-bottom:2px solid var(--ink)}
+.masthead h1{
+  font-size:34px;line-height:1.2;font-weight:600;letter-spacing:-.02em;
+  margin:0 0 6px;
+}
+.masthead .sub{color:var(--muted);font-size:14px;margin:0 0 26px}
+
+/* 首格给更多宽度，避免"数据区间"的值被挤断成两行 */
+.strip{display:grid;grid-template-columns:1.8fr repeat(5,1fr);border-top:1px solid var(--rule);margin-bottom:-2px}
+.strip div{padding:12px 14px 14px;border-right:1px solid var(--rule)}
+.strip div:first-child{padding-left:0}
+.strip div:last-child{border-right:0}
+.strip .k{display:block;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+.strip .v{display:block;font-family:var(--mono);font-size:19px;font-weight:500;margin-top:3px;line-height:1.25}
+.strip .v small{font-size:11.5px;color:var(--muted);font-weight:400}
+
+/* ---------- 通用区块 ---------- */
+section{padding-top:44px}
+h2{font-size:19px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.lede{color:var(--muted);font-size:13.5px;margin:0 0 22px;max-width:76ch}
+
+/* ---------- 环节分层带（主视觉） ---------- */
+.strata{border-top:1px solid var(--ink)}
+.band{border-bottom:1px solid var(--rule);padding:16px 0 18px;display:grid;grid-template-columns:196px 1fr;gap:24px}
+.band-head{display:flex;flex-direction:column;gap:2px}
+.band-name{font-size:15px;font-weight:600;display:flex;align-items:center;gap:7px}
+.tick{display:block;width:9px;height:9px;flex:none;border-radius:1px}
+.band-avg{font-family:var(--mono);font-size:26px;font-weight:500;line-height:1.15}
+.band-avg small{font-size:12px;color:var(--muted);font-weight:400;margin-left:2px}
+.band-n{font-size:11.5px;color:var(--muted)}
+.rows{display:flex;flex-direction:column;gap:7px;justify-content:center}
+.row{display:grid;grid-template-columns:104px 1fr 70px;align-items:center;gap:10px}
+.row .co{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .track{background:rgba(0,0,0,.055);height:16px;position:relative;border-radius:1px}
+/* 注意：fill 是 <span>，行内元素会忽略宽高，必须显式设为 block，否则条形不显示 */
+.row .fill{display:block;height:100%;border-radius:1px;transition:width .5s cubic-bezier(.2,.7,.3,1)}
+.row .val{font-family:var(--mono);font-size:13px;text-align:right;font-weight:500}
+
+/* ---------- 价格曲线 ---------- */
+.chart-host{position:relative;border:1px solid var(--rule);background:var(--panel)}
+svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px 20px;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;display:block;border-radius:2px}
+#readout{
+  position:absolute;top:12px;right:12px;background:rgba(21,25,29,.93);color:#EDEFF1;
+  font-family:var(--mono);font-size:11.5px;line-height:1.7;padding:9px 12px;border-radius:2px;
+  pointer-events:none;opacity:0;transition:opacity .12s;min-width:132px;
+}
+#readout .d{color:#9DAAB1;margin-bottom:3px}
+#readout b{font-weight:500}
+
+/* ---------- 数据表 ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--rule)}
+th{font-size:11.5px;font-weight:500;color:var(--muted);text-align:right;border-bottom:1px solid var(--rule-strong)}
+th:first-child,td:first-child{text-align:left}
+td.m,th.m{font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:1px solid var(--rule-strong)}
+.pos{color:var(--teal)} .neg{color:var(--signal)}
+.na{color:var(--muted);font-size:11.5px;font-family:var(--sans)}
+.stk{display:inline-flex;align-items:center;gap:7px}
+
+/* ---------- 异动 ---------- */
+.attr{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);margin-bottom:24px}
+.attr div{background:var(--panel);padding:16px 18px}
+.attr .v{font-family:var(--mono);font-size:30px;font-weight:500;line-height:1.1}
+.attr .k{font-size:12.5px;color:var(--muted);margin-top:3px}
+.attr .pct{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-left:7px}
+
+/* ---------- 页脚 ---------- */
+footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--ink);color:var(--muted);font-size:12.5px}
+footer p{margin:0 0 6px}
+footer code{font-family:var(--mono);font-size:12px;color:var(--ink)}
+
+@media (max-width:860px){
+  .strip{grid-template-columns:repeat(3,1fr)}
+  .strip div:nth-child(3n){border-right:0}
+  .band{grid-template-columns:1fr;gap:12px}
+  .row{grid-template-columns:88px 1fr 62px}
+  .attr{grid-template-columns:1fr}
+  .wrap{padding:0 18px 60px}
+}
+@media (prefers-reduced-motion:reduce){.row .fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>被动元件产业链 · 投研监控</h1>
+    <p class="sub" id="sub"></p>
+    <div class="strip" id="strip"></div>
+  </header>
+
+  <section>
+    <h2>环节分层</h2>
+    <p class="lede">按产业链环节分层，条形长度表示区间涨跌幅（首末交易日前复权收盘价）。同一环节内的个股排序即强弱排序。</p>
+    <div class="strata" id="strata"></div>
+  </section>
+
+  <section>
+    <h2>价格走势（归一化）</h2>
+    <p class="lede">各标的以区间首日收盘价为 100 归一化，消除绝对价格差异，便于比较相对强弱。纵轴为对数坐标，使"翻倍"在任何价位都对应同样的高度。悬停查看某日全部标的的数值。</p>
+    <div class="chart-host">
+      <div id="readout"></div>
+      <div id="priceSvg"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section>
+    <h2>财务表现</h2>
+    <p class="lede" id="finLede"></p>
+    <table id="finTable"></table>
+  </section>
+
+  <section>
+    <h2>异动检测</h2>
+    <p class="lede">对每只标的的日收益率计算 60 日滚动 z 分数，|z| ≥ 3 判定为异动，并按当日市场与同环节表现归因。</p>
+    <div class="attr" id="attr"></div>
+    <table id="anoTable"></table>
+  </section>
+
+  <footer>
+    <p>数据来源：akshare 公开接口（日线行情前复权、财务摘要按报告期累计）。本页所有数字取自 SQLite 事实表，未作二次推算。</p>
+    <p id="footQ"></p>
+    <p>本页为产业链数据观察与技术演示，不构成任何投资建议。生成方式见仓库 <code>dashboard/build_dashboard.py</code>。</p>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+
+/* 环节配色：取元器件本身的材质色 */
+const SEG_COLOR = {"MLCC/陶瓷":"var(--teal)","电容":"var(--amber)","铜箔":"var(--copper)"};
+const colorOf = s => SEG_COLOR[s] || "var(--muted)";
+const fx = (n,d=2) => n===null||n===undefined ? "—" : n.toFixed(d);
+const signed = n => (n>0?"+":"") + fx(n) + "%";
+
+/* ---------- 页眉 ---------- */
+document.getElementById("sub").textContent =
+  "被动元件（MLCC / 电容 / 铜箔）产业链上市公司的公开行情与财务数据观察";
+
+const q = DATA.quality[0];
+const strip = [
+  ["数据区间", DATA.meta.data_start.slice(0,7) + " — " + DATA.meta.data_end.slice(0,7), ""],
+  ["交易日", DATA.price.dates.length, "天"],
+  ["标的池", DATA.meta.n_stocks, "只 / " + DATA.meta.n_segments + " 环节"],
+  ["财务报告期", DATA.meta.financial_report_date, ""],
+  ["检出异动", DATA.anomalies.total, "条"],
+  ["停牌记录", q ? q.days : 0, q ? "天 / " + q.name : ""],
+];
+document.getElementById("strip").innerHTML = strip.map(([k,v,s])=>
+  `<div><span class="k">${k}</span><span class="v">${v}${s?` <small>${s}</small>`:""}</span></div>`
+).join("");
+
+/* ---------- 环节分层 ---------- */
+const maxRet = Math.max(...DATA.stocks.map(s=>s.ret_pct));
+document.getElementById("strata").innerHTML = DATA.segments.map(seg=>{
+  const rows = DATA.stocks.filter(s=>s.segment===seg.segment)
+    .map(s=>`<div class="row">
+        <span class="co">${s.name}</span>
+        <span class="track"><span class="fill" style="width:${(s.ret_pct/maxRet*100).toFixed(1)}%;background:${colorOf(s.segment)}"></span></span>
+        <span class="val">${signed(s.ret_pct)}</span>
+      </div>`).join("");
+  return `<div class="band">
+      <div class="band-head">
+        <span class="band-name"><i class="tick" style="background:${colorOf(seg.segment)}"></i>${seg.segment}</span>
+        <span class="band-avg">${fx(seg.avg_ret_pct)}<small>% 均值</small></span>
+        <span class="band-n">${seg.n_stocks} 只标的</span>
+      </div>
+      <div class="rows">${rows}</div>
+    </div>`;
+}).join("");
+
+/* ---------- 归一化价格曲线（手绘 SVG） ---------- */
+(function(){
+  const {dates, series} = DATA.price;
+  const W=1120, H=380, PL=52, PR=16, PT=16, PB=30;
+  const iw=W-PL-PR, ih=H-PT-PB;
+  const vals = series.flatMap(s=>s.values).filter(v=>v!==null);
+  const lo = Math.min(...vals, 100), hi = Math.max(...vals, 100);
+  // 对数坐标：归一化指数跨越数十到数百，线性轴会被后期暴涨压扁，
+  // 前期走势全部挤在底部。对数轴让"翻倍"在任何位置都是同样的高度。
+  const y0 = lo*0.90, y1 = hi*1.08;            // 乘法留白
+  const l0 = Math.log(y0), l1 = Math.log(y1);
+  const X = i => PL + (dates.length<2?0:i*(iw/(dates.length-1)));
+  const Y = v => PT + ih - (Math.log(v)-l0)/(l1-l0)*ih;
+
+  let g = "";
+  /* 对数刻度：取 1/2/5 × 10^n 中的整齐值 */
+  const ticks = [];
+  for(let e=0;e<=5;e++) for(const b of [1,2,5]){
+    const v=b*Math.pow(10,e);
+    if(v>=y0 && v<=y1) ticks.push(v);
+  }
+  ticks.forEach(v=>{
+    const y = Y(v);
+    g += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--rule)" stroke-width="1"/>`;
+    g += `<text x="${PL-9}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">${v}</text>`;
+  });
+  /* 基线 100 */
+  g += `<line x1="${PL}" y1="${Y(100).toFixed(1)}" x2="${W-PR}" y2="${Y(100).toFixed(1)}" stroke="var(--rule-strong)" stroke-width="1" stroke-dasharray="4 3"/>`;
+  /* 日期刻度 */
+  const step = Math.ceil(dates.length/7);
+  for(let i=0;i<dates.length;i+=step){
+    g += `<text x="${X(i).toFixed(1)}" y="${H-9}" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">${dates[i].slice(0,7)}</text>`;
+  }
+  /* 曲线 */
+  series.forEach(s=>{
+    let d="", pen=false;
+    s.values.forEach((v,i)=>{
+      if(v===null){pen=false;return;}
+      d += (pen?"L":"M") + X(i).toFixed(1) + " " + Y(v).toFixed(1) + " ";
+      pen=true;
+    });
+    g += `<path d="${d}" fill="none" stroke="${colorOf(s.segment)}" stroke-width="1.5" stroke-linejoin="round" opacity=".92"/>`;
+  });
+  g += `<line id="cursor" x1="0" y1="${PT}" x2="0" y2="${PT+ih}" stroke="var(--ink)" stroke-width="1" opacity="0"/>`;
+  document.getElementById("priceSvg").innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="归一化价格走势">${g}</svg>`;
+  document.getElementById("legend").innerHTML = series.map(s=>
+    `<span><i style="background:${colorOf(s.segment)}"></i>${s.name}</span>`).join("");
+
+  /* 悬停读数 */
+  const host=document.querySelector(".chart-host"), out=document.getElementById("readout"),
+        cur=document.getElementById("cursor");
+  host.addEventListener("mousemove", e=>{
+    const r=host.getBoundingClientRect();
+    const px=(e.clientX-r.left)/r.width*W;
+    let i=Math.round((px-PL)/(iw/(dates.length-1)));
+    i=Math.max(0,Math.min(dates.length-1,i));
+    cur.setAttribute("x1",X(i)); cur.setAttribute("x2",X(i)); cur.setAttribute("opacity","1");
+    const lines=series.map(s=>({n:s.name,v:s.values[i],c:colorOf(s.segment)}))
+                       .filter(o=>o.v!==null)
+                       .sort((a,b)=>b.v-a.v)
+                       .map(o=>`<div style="color:${o.c}">${o.n} <b>${o.v.toFixed(1)}</b></div>`).join("");
+    out.innerHTML = `<div class="d">${dates[i]}</div>${lines}`;
+    out.style.opacity="1";
+  });
+  host.addEventListener("mouseleave", ()=>{ out.style.opacity="0"; cur.setAttribute("opacity","0"); });
+})();
+
+/* ---------- 财务表 ---------- */
+const fin = DATA.financial;
+document.getElementById("finLede").textContent =
+  `最新报告期 ${DATA.meta.financial_report_date}，营收与归母净利润为报告期累计值，同比即与去年同期比较。` +
+  `报告中若无同比，说明去年同期基数为负，该口径不适用。`;
+document.getElementById("finTable").innerHTML =
+  `<thead><tr><th>公司</th><th>环节</th><th>营业总收入</th><th>营收同比</th><th>归母净利润</th><th>净利同比</th></tr></thead><tbody>` +
+  fin.map(f=>{
+    const cell = (v,note)=> v===null||v===undefined
+      ? `<td><span class="na">${note||"不适用"}</span></td>`
+      : `<td class="m ${v<0?"neg":"pos"}">${signed(v)}</td>`;
+    return `<tr>
+      <td><span class="stk"><i class="tick" style="background:${colorOf(f.segment)}"></i>${f.name}</span></td>
+      <td style="color:var(--muted);font-size:12px">${f.segment}</td>
+      <td class="m">${fx(f.revenue_yi)} <span style="color:var(--muted);font-size:11px">亿</span></td>
+      ${cell(f.revenue_yoy)}
+      <td class="m">${fx(f.profit_yi)} <span style="color:var(--muted);font-size:11px">亿</span></td>
+      ${cell(f.profit_yoy,f.profit_note)}
+    </tr>`;
+  }).join("") + "</tbody>";
+
+/* ---------- 异动 ---------- */
+const A=DATA.anomalies, tot=A.total;
+const labels={market:"市场性",segment:"板块性",stock:"个股性"};
+document.getElementById("attr").innerHTML =
+  ["market","stock","segment"].map(k=>{
+    const v=A.by_attribution[k]||0;
+    return `<div>
+      <div class="v">${v}<span class="pct">${tot?(v/tot*100).toFixed(1):"0.0"}%</span></div>
+      <div class="k">${labels[k]}异动</div>
+    </div>`;
+  }).join("");
+document.getElementById("anoTable").innerHTML =
+  `<thead><tr><th>公司</th><th>交易日</th><th>涨跌幅</th><th>z 分数</th></tr></thead><tbody>` +
+  A.stock_specific.map(a=>`<tr>
+      <td>${a.name}</td>
+      <td class="m">${a.trade_date}</td>
+      <td class="m ${a.ret_pct<0?"neg":"pos"}">${signed(a.ret_pct)}</td>
+      <td class="m">${fx(a.zscore)}</td>
+    </tr>`).join("") + "</tbody>";
+
+/* ---------- 页脚 ---------- */
+document.getElementById("footQ").innerHTML = q
+  ? `数据质量说明：<b>${q.name}</b> 于 ${q.period} 停牌 ${q.days} 个交易日，该期间无交易数据；区间收益按可用收盘价计算。`
+  : "数据质量说明：区间内无停牌记录。";
+</script>
+</body>
+</html>

@@ -6,6 +6,8 @@
 本项目的目的是把"数据分析"从工具名词变成可运行、可追问的交付物：
 每一个数字都能回溯到一条 SQL 查询，每一步处理都能在提交历史里看到。
 
+**📊 在线看板：https://gg0070071.github.io/passive-components-monitor/**
+
 > 免责声明：本项目仅用于公开数据的行业观察与技术演示，不构成任何投资建议。
 
 ---
@@ -44,8 +46,9 @@ SQLite: fact_anomaly
     ▼
 reports/月报_*.md
     │
+    │  dashboard/build_dashboard.py   把事实渲染成自包含网页
     ▼
-（规划中）Power BI 看板
+docs/index.html  →  GitHub Pages 在线看板
 ```
 
 ---
@@ -68,11 +71,16 @@ passive-components-monitor/
 ├── sql/
 │   ├── schema.sql        表结构（星型模型）
 │   └── queries.sql       分析查询集（9 条）
+├── dashboard/
+│   ├── template.html     看板页面模板
+│   └── build_dashboard.py 把数据渲染成网页
 ├── data/
 │   ├── raw/              采集的原始 CSV（可再生，不入库）
 │   └── db/               SQLite 数据库
-├── reports/              生成的月报与提示词留档
-└── dashboard/            Power BI 看板（规划中）
+├── reports/              生成的月报
+├── docs/
+│   └── index.html        看板成品（GitHub Pages 从这里发布）
+└── LICENSE
 ```
 
 ---
@@ -206,6 +214,28 @@ python ai/quality_gate.py reports/月报_xxx.md /tmp/facts.json
 
 ---
 
+## 在线看板
+
+`dashboard/build_dashboard.py` 从数据库取出事实，渲染成**单文件自包含网页** `docs/index.html`，
+再由 GitHub Pages 发布。网页不依赖任何外部 CDN 或网络请求，离线双击也能打开。
+
+```bash
+python dashboard/build_dashboard.py     # 重新生成 docs/index.html
+```
+
+看板设计上有两个刻意的取舍：
+
+- **环节分层带**：主视觉不是常见的卡片网格，而是按产业链环节横向分层的条形图。
+  层的结构本身就是信息——它对应真实的上下游关系。配色取自元器件材质本身
+  （铜箔用铜色、电容用琥珀、MLCC/陶瓷用青灰蓝）。
+- **价格曲线用对数坐标**：归一化指数跨越 50 到 780，线性轴会被后期涨幅压扁，
+  前期走势全部挤在底部。对数轴让"翻倍"在任何价位都对应同样的高度。
+
+配色只用系统字体，不加载外部字体：看板会被国内招聘方打开，而常用的
+Google Fonts 在国内往往加载失败，会导致排版走样。
+
+---
+
 ## 路线图
 
 - [x] 数据采集（多源降级）
@@ -213,9 +243,9 @@ python ai/quality_gate.py reports/月报_xxx.md /tmp/facts.json
 - [x] 分析查询集
 - [x] 异动检测与归因（滚动 z-score）
 - [x] LLM 月报流水线 + 输出质量门禁
-- [ ] 行业月报成稿（需本机配置 DeepSeek key 后运行）
-- [ ] Power BI 看板
-- [ ] 发布到 GitHub
+- [x] 行业月报成稿
+- [x] 在线看板（GitHub Pages）
+- [ ] 用 Tableau Public 补一份 BI 工具版本（可选）
 
 ---
 
